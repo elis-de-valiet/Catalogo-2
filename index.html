@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS - Caja de Cobro</title>
-    <script src="https://cloudflare.com"></script>
+    <title>POS - Caja de Cobro Pro</title>
+    <!-- Incluimos la versión oficial y completa del escáner en vivo -->
+    <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f4f6f9; color: #333; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
@@ -13,35 +14,50 @@
         .nav-links a { text-decoration: none; color: #2980b9; font-weight: bold; font-size: 14px; }
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         input[type="text"] { padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; box-sizing: border-box; width: 100%; }
+        
+        /* Botones del Escáner */
         .btn { padding: 12px 15px; border: none; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }
         .btn-green { background-color: #2ecc71; }
-        .btn-orange { background-color: #f39c12; }
-        #reader { width: 100%; max-width: 320px; margin: 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
+        .btn-blue { background-color: #3498db; }
+        .btn-red { background-color: #e74c3c; }
+        
+        /* Zona del Visor de la Cámara en Vivo */
+        #zona-escaneo { width: 100%; max-width: 400px; margin: 10px auto; display: block; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background-color: #000; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; }
         .total-box { background: #2c3e50; color: white; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        .cooldown-aviso { text-align: center; color: #e67e22; font-weight: bold; font-size: 14px; margin-top: 5px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="nav-links">
-        <span>📍 Pantalla: Caja de Cobro</span>
+        <span>📍 Caja de Cobro</span>
         <a href="inventario.html">📦 Ir a Inventario y Reportes ➔</a>
     </div>
 
     <h1>🛒 Caja Registradora</h1>
 
     <div class="input-group">
-        <input type="text" id="barcode-input" placeholder="Lector físico o escribe código..." autofocus>
+        <!-- Entrada para el lector físico de mano -->
+        <input type="text" id="barcode-input" placeholder="Lector de mano activo... (o escribe código)" autofocus>
         
-        <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="procesarYEscanear(this)">
-        <button class="btn btn-orange" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
+        <!-- Botones para encender y apagar la cámara del celular en vivo -->
+        <button class="btn btn-blue" id="btn-encender" onclick="iniciarEscaneoAutomatico()">📷 Encender Escáner Automático</button>
+        <button class="btn btn-red" id="btn-apagar" onclick="detenerEscaneo()" style="display: none;">🛑 Apagar Cámara</button>
+        <div class="cooldown-aviso" id="aviso-espera">🔄 Procesando código... espera un segundo</div>
     </div>
 
-    <div id="reader"></div>
+    <!-- Contenedor donde se proyectará el video de tu cámara -->
+    <div id="zona-escaneo">
+        <div id="reader"></div>
+    </div>
 
+    <!-- Tabla de productos en el carrito -->
     <table>
         <thead>
             <tr><th>Item</th><th>Precio</th><th>Cant.</th><th>Total</th></tr>
@@ -59,7 +75,10 @@
     let inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
     let historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
     let carrito = {};
+    let html5QrcodeScanner = null;
+    let puedeEscanear = true; // Controla que no se agregue el mismo producto 50 veces por segundo
 
+    // Lector de mano físico USB/Bluetooth
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); buscarYAgregar(this.value); }
     });
@@ -78,9 +97,11 @@
                 carrito[codigo] = { nombre: prod.nombre, compra: prod.compra, venta: prod.venta, cantidad: 1 };
             }
             actualizarInterfaz();
-            if (navigator.vibrate) navigator.vibrate(60);
+            
+            // Sonido o vibración de confirmación ("Bip")
+            if (navigator.vibrate) navigator.vibrate(80);
         } else {
-            alert(`⚠️ El código "${codigo}" no existe. Regístralo primero en la pestaña de Inventario.`);
+            alert(`⚠️ Código "${codigo}" no encontrado en tu inventario.\nVe a la pestaña de Inventario para registrarlo.`);
         }
     }
 
@@ -94,12 +115,69 @@
         document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
     }
 
+    // --- MOTOR DE ESCANEO EN VIVO Y AUTOMÁTICO ---
+    function iniciarEscaneoAutomatico() {
+        document.getElementById('btn-encender').style.display = 'none';
+        document.getElementById('btn-apagar').style.display = 'block';
+
+        // Creamos el escáner configurado idealmente para códigos de barra de productos (EAN_13, EAN_8, CODE_128)
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        
+        const config = {
+            fps: 15, // Velocidad de lectura por segundo
+            qrbox: { width: 280, height: 160 }, // Cuadro de enfoque rectangular para códigos de barra largos
+            aspectRatio: 1.0
+        };
+
+        // Forzamos al celular a usar estrictamente la cámara de atrás con enfoque automático
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText) => {
+                // Cuando detecta un código de barras de forma automática en el video:
+                if (puedeEscanear) {
+                    puedeEscanear = false;
+                    document.getElementById('aviso-espera').style.display = 'block';
+                    
+                    buscarYAgregar(decodedText);
+                    
+                    // Pausa de 1.5 segundos antes de permitir escanear el siguiente producto
+                    setTimeout(() => {
+                        puedeEscanear = true;
+                        document.getElementById('aviso-espera').style.display = 'none';
+                    }, 1500);
+                }
+            },
+            (error) => {
+                // Registro silencioso mientras busca líneas de barras en el video
+            }
+        ).catch(err => {
+            console.error(err);
+            alert("Error al conectar la cámara en vivo. Asegúrate de dar los permisos cuando aparezca el aviso.");
+            detenerEscaneo();
+        });
+    }
+
+    function detenerEscaneo() {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop().then(() => {
+                html5QrcodeScanner = null;
+                document.getElementById('btn-encender').style.display = 'block';
+                document.getElementById('btn-apagar').style.display = 'none';
+                document.getElementById('aviso-espera').style.display = 'none';
+            }).catch(err => console.error(err));
+        } else {
+            document.getElementById('btn-encender').style.display = 'block';
+            document.getElementById('btn-apagar').style.display = 'none';
+        }
+    }
+
     function cobrarVenta() {
         if (Object.keys(carrito).length === 0) return alert("El carrito está vacío.");
         historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
         
         const ahora = new Date();
-        const fechaDia = ahora.toISOString().split('T')[0];
+        const fechaDia = ahora.toISOString().split('T');
         const horaStr = ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
         let totalVenta = 0, totalCostoCompra = 0, itemsVendidos = [];
@@ -119,49 +197,6 @@
         carrito = {};
         actualizarInterfaz();
         alert("🎉 Venta registrada con éxito.");
-    }
-
-    // --- NUEVO PROCESADOR DE FOTO PARA MEJORAR LA LECTURA ---
-    function procesarYEscanear(input) {
-        if (input.files.length === 0) return;
-        const archivo = input.files[0];
-        const lectorImagen = new FileReader();
-
-        lectorImagen.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                // Creamos un lienzo (canvas) para reducir el tamaño de la foto gigante
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Forzamos un tamaño óptimo para que la librería no se trabe (Max 800px)
-                let ancho = img.width;
-                let alto = img.height;
-                if (ancho > 800) {
-                    alto = (800 / ancho) * alto;
-                    ancho = 800;
-                }
-                canvas.width = ancho;
-                canvas.height = alto;
-                
-                // Dibujamos la imagen optimizada
-                ctx.drawImage(img, 0, 0, ancho, alto);
-                
-                // Convertimos el lienzo optimizado en un archivo listo para leer
-                canvas.toBlob(function(blob) {
-                    const archivoOptimizado = new File([blob], "foto.jpg", { type: "image/jpeg" });
-                    
-                    const html5QrCodeFile = new Html5Qrcode("reader");
-                    html5QrCodeFile.scanFile(archivoOptimizado, true)
-                        .then(text => { buscarYAgregar(text); })
-                        .catch(err => { 
-                            alert("❌ No se pudo leer el código. Intenta tomar la foto un poco más lejos para que salga nítida y bien enfocada."); 
-                        });
-                }, 'image/jpeg', 0.8);
-            };
-            img.src = e.target.result;
-        };
-        lectorImagen.readAsDataURL(archivo);
     }
 </script>
 </body>
