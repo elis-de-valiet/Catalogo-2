@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS - Caja de Cobro Pro</title>
-    <!-- Cargamos la versión oficial del escáner en vivo -->
+    <!-- Cargamos la librería oficial completa con interfaz nativa -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f4f6f9; color: #333; }
@@ -20,9 +20,13 @@
         .btn-blue { background-color: #3498db; }
         .btn-red { background-color: #e74c3c; }
         
-        #zona-escaneo { width: 100%; max-width: 360px; margin: 15px auto; display: none; }
-        /* CORRECCIÓN: Quitamos el fondo negro forzado por CSS para que el video nativo tome el control */
-        #reader { width: 100%; min-height: 250px; border-radius: 8px; overflow: hidden; border: 2px solid #2c3e50; }
+        /* Contenedor adaptativo para que la interfaz interna de la librería quepa perfecta */
+        #zona-escaneo { width: 100%; max-width: 450px; margin: 15px auto; display: none; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; border: 2px solid #2c3e50; background-color: #fff; }
+        
+        /* Estilos para limpiar y agrandar los botones nativos que creará la librería */
+        #reader button { padding: 10px 15px; background-color: #3498db; color: white; border: none; border-radius: 6px; font-weight: bold; margin: 8px auto; display: block; cursor: pointer; }
+        #reader select { padding: 10px; width: 90%; margin: 8px auto; display: block; border-radius: 6px; border: 2px solid #bdc3c7; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
@@ -44,11 +48,12 @@
     <div class="input-group">
         <input type="text" id="barcode-input" placeholder="Lector de mano activo... (o escribe código)" autofocus>
         
-        <button class="btn btn-blue" id="btn-encender" onclick="iniciarEscaneoAutomatico()">📷 Encender Escáner Automático</button>
-        <button class="btn btn-red" id="btn-apagar" onclick="detenerEscaneo()" style="display: none;">🛑 Apagar Cámara</button>
+        <button class="btn btn-blue" id="btn-encender" onclick="activarPanelEscaneo()">📷 Abrir Panel de Escáner</button>
+        <button class="btn btn-red" id="btn-apagar" onclick="cerrarPanelEscaneo()" style="display: none;">🛑 Cerrar Panel</button>
         <div class="cooldown-aviso" id="aviso-espera">🔄 Procesando código... espera un segundo</div>
     </div>
 
+    <!-- El cuadro donde se creará la interfaz interactiva -->
     <div id="zona-escaneo">
         <div id="reader"></div>
     </div>
@@ -107,70 +112,54 @@
         document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
     }
 
-    // --- NUEVO INICIADOR INTELIGENTE DE CÁMARA ---
-    function iniciarEscaneoAutomatico() {
+    // --- NUEVA FUNCIÓN CON INTERFAZ DE SELECCIÓN INTEGRADA ---
+    function activarPanelEscaneo() {
         document.getElementById('zona-escaneo').style.display = 'block';
         document.getElementById('btn-encender').style.display = 'none';
         document.getElementById('btn-apagar').style.display = 'block';
 
-        html5QrcodeScanner = new Html5Qrcode("reader");
-        
-        const config = {
-            fps: 15,
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-                return { width: Math.floor(viewfinderWidth * 0.85), height: Math.floor(viewfinderHeight * 0.6) };
-            }
-        };
+        // Iniciamos el escáner completo (genera automáticamente los menús y botones de cámara)
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 10, 
+                qrbox: { width: 250, height: 150 },
+                rememberLastUsedCamera: true
+            }, 
+            /* verbose= */ false
+        );
 
-        // PASO EXTRA: Le pedimos al navegador que busque TODOS los lentes y elija el mejor de atrás automáticamente
-        Html5Qrcode.getCameras().then(devices => {
-            if (devices && devices.length) {
-                // Buscamos un lente que en su nombre contenga la palabra "back" o "trasera"
-                let backCamera = devices.find(device => device.label.toLowerCase().includes('back'));
-                
-                // Si lo encuentra usa ese ID específico, si no, usa el último de la lista (que suele ser el principal de atrás)
-                let cameraId = backCamera ? backCamera.id : devices[devices.length - 1].id;
-
-                html5QrcodeScanner.start(
-                    cameraId, 
-                    config,
-                    (decodedText) => {
-                        if (puedeEscanear) {
-                            puedeEscanear = false;
-                            document.getElementById('aviso-espera').style.display = 'block';
-                            buscarYAgregar(decodedText);
-                            setTimeout(() => {
-                                puedeEscanear = true;
-                                document.getElementById('aviso-espera').style.display = 'none';
-                            }, 1500);
-                        }
-                    },
-                    (error) => { /* Buscando barras... */ }
-                ).catch(err => {
-                    // Si falla con la cámara trasera preferida, intentamos el modo por defecto del sistema
-                    intentarModoPorDefecto(config);
-                });
-            } else {
-                intentarModoPorDefecto(config);
-            }
-        }).catch(err => {
-            intentarModoPorDefecto(config);
-        });
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     }
 
-    function intentarModoPorDefecto(config) {
-        html5QrcodeScanner.start({ facingMode: "environment" }, config, (text) => { buscarYAgregar(text); }, () => {});
+    function onScanSuccess(decodedText) {
+        if (puedeEscanear) {
+            puedeEscanear = false;
+            document.getElementById('aviso-espera').style.display = 'block';
+            
+            buscarYAgregar(decodedText);
+            
+            setTimeout(() => {
+                puedeEscanear = true;
+                document.getElementById('aviso-espera').style.display = 'none';
+            }, 1500);
+        }
     }
 
-    function detenerEscaneo() {
+    function onScanFailure(error) {
+        // Escaneo continuo en segundo plano
+    }
+
+    function cerrarPanelEscaneo() {
         if (html5QrcodeScanner) {
-            html5QrcodeScanner.stop().then(() => {
+            html5QrcodeScanner.clear().then(() => {
                 html5QrcodeScanner = null;
                 document.getElementById('zona-escaneo').style.display = 'none';
                 document.getElementById('btn-encender').style.display = 'block';
                 document.getElementById('btn-apagar').style.display = 'none';
                 document.getElementById('aviso-espera').style.display = 'none';
             }).catch(err => {
+                console.error(err);
                 document.getElementById('zona-escaneo').style.display = 'none';
                 document.getElementById('btn-encender').style.display = 'block';
                 document.getElementById('btn-apagar').style.display = 'none';
