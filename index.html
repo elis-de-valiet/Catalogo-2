@@ -3,64 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Web - Solución Definitiva</title>
+    <title>POS - Caja de Cobro</title>
     <script src="https://cloudflare.com"></script>
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background-color: #f4f6f9; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f4f6f9; color: #333; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #2c3e50; font-size: 24px; }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; margin-top: 5px; }
+        .nav-links { display: flex; justify-content: space-between; margin-bottom: 15px; background: #eaeaea; padding: 8px; border-radius: 6px; }
+        .nav-links a { text-decoration: none; color: #2980b9; font-weight: bold; font-size: 14px; }
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        input[type="text"] { padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; }
-        .btn { padding: 12px 15px; border: none; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-align: center; }
-        .btn-live { background-color: #2ecc71; }
-        .btn-file { background-color: #f39c12; }
-        .btn-stop { background-color: #e74c3c; display: none; }
-        #reader { width: 100%; max-width: 350px; margin: 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
-        .file-input-wrapper { display: flex; flex-direction: column; align-items: center; background: #f9f9f9; padding: 10px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
+        input[type="text"] { padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; box-sizing: border-box; width: 100%; }
+        .btn { padding: 12px 15px; border: none; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }
+        .btn-green { background-color: #2ecc71; }
+        .btn-orange { background-color: #f39c12; }
+        #reader { width: 100%; max-width: 320px; margin: 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #f8f9fa; }
-        .total-section { text-align: right; margin-top: 20px; font-size: 20px; font-weight: bold; }
+        .total-box { background: #2c3e50; color: white; padding: 12px; border-radius: 8px; margin-top: 15px; font-size: 18px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛒 POS Escáner Móvil</h1>
+    <div class="nav-links">
+        <span>📍 Pantalla: Caja de Cobro</span>
+        <!-- Enlace para ir a la parte 2 -->
+        <a href="inventario.html">📦 Ir a Inventario y Reportes ➔</a>
+    </div>
+
+    <h1>🛒 Caja Registradora</h1>
 
     <div class="input-group">
-        <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
+        <input type="text" id="barcode-input" placeholder="Lector físico o escribe código..." autofocus>
         
-        <!-- Opción 1: Intentar Cámara en Vivo -->
-        <button class="btn btn-live" id="btn-start" onclick="encenderCamaraEnv()">📷 Escanear en Vivo</button>
-        <button class="btn btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar Cámara</button>
-
-        <!-- Opción 2: Botón de Emergencia (Captura de Foto Directa) -->
-        <div class="file-input-wrapper">
-            <span style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">¿No abre la cámara? Usa este botón:</span>
-            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="escanearDesdeArchivo(this)">
-            <button class="btn btn-file" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
-        </div>
+        <!-- Botón de emergencia para celulares -->
+        <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="escanearDesdeArchivo(this)">
+        <button class="btn btn-orange" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
     </div>
 
     <div id="reader"></div>
 
     <table>
-        <thead><tr><th>Item</th><th>Precio</th><th>Cant.</th><th>Total</th></tr></thead>
+        <thead>
+            <tr><th>Item</th><th>Precio</th><th>Cant.</th><th>Total</th></tr>
+        </thead>
         <tbody id="cart-table-body"></tbody>
     </table>
 
-    <div class="total-section">Total: $<span id="cart-total">0.00</span></div>
+    <div class="total-box">
+        <span>Total: <span id="cart-total">$0.00</span></span>
+        <button class="btn btn-green" onclick="cobrarVenta()" style="width: auto; padding: 8px 15px;">💵 Cobrar</button>
+    </div>
 </div>
 
 <script>
-    const infoProductos = {
-        "123456": { nombre: "Producto Prueba", precio: 10.00 },
-        "7501055310014": { nombre: "Refresco", precio: 1.50 }
-    };
+    // Conectar con la base de datos compartida del teléfono
+    let inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
+    let historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
     let carrito = {};
-    let html5QrCode = null;
 
+    // Escuchar lector de mano
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); buscarYAgregar(this.value); }
     });
@@ -69,74 +72,62 @@
         codigo = codigo.trim();
         if (!codigo) return;
         document.getElementById('barcode-input').value = "";
-        if (infoProductos[codigo]) {
-            const prod = infoProductos[codigo];
-            if (carrito[codigo]) { carrito[codigo].cantidad += 1; } 
-            else { carrito[codigo] = { nombre: prod.nombre, precio: prod.precio, cantidad: 1 }; }
+
+        if (inventario[codigo]) {
+            const prod = inventario[codigo];
+            if (carrito[codigo]) {
+                carrito[codigo].cantidad += 1;
+            } else {
+                carrito[codigo] = { nombre: prod.nombre, compra: prod.compra, venta: prod.venta, cantidad: 1 };
+            }
             actualizarInterfaz();
-            if (navigator.vibrate) navigator.vibrate(80);
-        } else { alert(`Código no encontrado: ${codigo}`); }
+            if (navigator.vibrate) navigator.vibrate(60);
+        } else {
+            alert(`⚠️ El código "${codigo}" no existe en el inventario. Ve a la pestaña Inventario para registrarlo.`);
+        }
     }
 
     function actualizarInterfaz() {
         const tbody = document.getElementById('cart-table-body');
-        tbody.innerHTML = ""; let granTotal = 0;
+        tbody.innerHTML = ""; let total = 0;
         for (let cod in carrito) {
-            const item = carrito[cod]; const sub = item.precio * item.cantidad; granTotal += sub;
-            tbody.innerHTML += `<tr><td>${item.nombre}</td><td>$${item.precio.toFixed(2)}</td><td>${item.cantidad}</td><td>$${sub.toFixed(2)}</td></tr>`;
+            const item = carrito[cod]; const sub = item.venta * item.cantidad; total += sub;
+            tbody.innerHTML += `<tr><td>${item.nombre}</td><td>$${item.venta.toFixed(2)}</td><td>${item.cantidad}</td><td>$${sub.toFixed(2)}</td></tr>`;
         }
-        document.getElementById('cart-total').innerText = granTotal.toFixed(2);
+        document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
     }
 
-    // --- MÉTODOS DE ESCANEO ---
+    function cobrarVenta() {
+        if (Object.keys(carrito).length === 0) return alert("El carrito está vacío.");
+        const ahora = new Date();
+        const fechaDia = ahora.toISOString().split('T')[0];
+        const horaStr = ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-    // 1. Escaneo por archivo/foto (Inmune a bloqueos de permisos)
+        let totalVenta = 0, totalCostoCompra = 0, itemsVendidos = [];
+        for (let cod in carrito) {
+            const item = carrito[cod];
+            totalVenta += item.venta * item.cantidad;
+            totalCostoCompra += item.compra * item.cantidad;
+            itemsVendidos.push({ nombre: item.nombre, cantidad: item.cantidad });
+        }
+
+        historialVentas.push({
+            id: Date.now(), fecha: fechaDia, hora: horaStr,
+            items: itemsVendidos, total: totalVenta, ganancia: (totalVenta - totalCostoCompra)
+        });
+        
+        localStorage.setItem('pos_historial', JSON.stringify(historialVentas));
+        carrito = {};
+        actualizarInterfaz();
+        alert("🎉 Venta registrada con éxito.");
+    }
+
     function escanearDesdeArchivo(input) {
         if (input.files.length === 0) return;
-        const archivo = input.files[0];
-        
-        // Creamos un lector temporal en un div invisible
         const html5QrCodeFile = new Html5Qrcode("reader");
-        html5QrCodeFile.scanFile(archivo, true)
-            .then(decodedText => {
-                buscarYAgregar(decodedText);
-            })
-            .catch(err => {
-                alert("No se pudo detectar un código de barras nítido en la imagen. Intenta tomar la foto más cerca y con buena luz.");
-            });
-    }
-
-    // 2. Intentar escaneo nativo directo
-    function encenderCamaraEnv() {
-        const readerDiv = document.getElementById('reader');
-        readerDiv.style.display = 'block';
-        html5QrCode = new Html5Qrcode("reader");
-        
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            { fps: 10, qrbox: { width: 250, height: 150 } }, 
-            (text) => { buscarYAgregar(text); apagarCamara(); }, 
-            () => {}
-        )
-        .then(() => {
-            document.getElementById('btn-start').style.display = 'none';
-            document.getElementById('btn-stop').style.display = 'block';
-        })
-        .catch(err => {
-            document.getElementById('reader').style.display = 'none';
-            alert("Acceso en vivo bloqueado por el celular. Por favor, utiliza el botón naranja 'Tomar Foto al Código'.");
-        });
-    }
-
-    function apagarCamara() {
-        if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('reader').style.display = 'none';
-                document.getElementById('btn-start').style.display = 'block';
-                document.getElementById('btn-stop').style.display = 'none';
-                html5QrCode = null;
-            });
-        }
+        html5QrCodeFile.scanFile(input.files[true])
+            .then(text => { buscarYAgregar(text); })
+            .catch(err => { alert("No se leyó bien el código. Intenta con más luz."); });
     }
 </script>
 </body>
