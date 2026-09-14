@@ -3,21 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Web Móvil - Permiso Forzado</title>
+    <title>POS Web - Solución Definitiva</title>
     <script src="https://cloudflare.com"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background-color: #f4f6f9; }
         .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         h1 { text-align: center; color: #2c3e50; font-size: 24px; }
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        .row { display: flex; gap: 8px; }
-        input[type="text"], select { flex: 1; padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; background: white; }
-        button { padding: 12px 15px; border: none; background-color: #3498db; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-permiso { background-color: #f39c12; width: 100%; }
-        .btn-camera { background-color: #2ecc71; width: 100%; display: none; }
-        .btn-stop { background-color: #e74c3c; width: 100%; display: none; }
-        #camera-select { display: none; } /* Oculto hasta tener permiso */
-        #reader { width: 100%; max-width: 350px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
+        input[type="text"] { padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; }
+        .btn { padding: 12px 15px; border: none; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-align: center; }
+        .btn-live { background-color: #2ecc71; }
+        .btn-file { background-color: #f39c12; }
+        .btn-stop { background-color: #e74c3c; display: none; }
+        #reader { width: 100%; max-width: 350px; margin: 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
+        .file-input-wrapper { display: flex; flex-direction: column; align-items: center; background: #f9f9f9; padding: 10px; border: 2px dashed #ccc; border-radius: 8px; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
         th { background-color: #f8f9fa; }
@@ -30,25 +29,17 @@
     <h1>🛒 POS Escáner Móvil</h1>
 
     <div class="input-group">
-        <div class="row">
-            <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
-        </div>
+        <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
         
-        <!-- BOTÓN PASO 1: FORZAR SOLICITUD DE PERMISO -->
-        <div class="row" id="permission-row">
-            <button class="btn-permiso" onclick="pedirPermisoYListar()">🔑 Paso 1: Conectar con las Cámaras</button>
-        </div>
+        <!-- Opción 1: Intentar Cámara en Vivo -->
+        <button class="btn btn-live" id="btn-start" onclick="encenderCamaraEnv()">📷 Escanear en Vivo</button>
+        <button class="btn btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar Cámara</button>
 
-        <!-- PASO 2: SELECCIÓN Y ENCENDIDO (OCULTOS AL INICIO) -->
-        <div class="row">
-            <select id="camera-select">
-                <option value="">Selecciona una cámara...</option>
-            </select>
-        </div>
-        
-        <div class="row">
-            <button class="btn-camera" id="btn-start" onclick="encenderCamaraSeleccionada()">📷 Paso 2: Iniciar Cámara</button>
-            <button class="btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar Cámara</button>
+        <!-- Opción 2: Botón de Emergencia (Captura de Foto Directa) -->
+        <div class="file-input-wrapper">
+            <span style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">¿No abre la cámara? Usa este botón:</span>
+            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="escanearDesdeArchivo(this)">
+            <button class="btn btn-file" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
         </div>
     </div>
 
@@ -75,7 +66,7 @@
     });
 
     function buscarYAgregar(codigo) {
-        codigo = code = codigo.trim();
+        codigo = codigo.trim();
         if (!codigo) return;
         document.getElementById('barcode-input').value = "";
         if (infoProductos[codigo]) {
@@ -97,48 +88,44 @@
         document.getElementById('cart-total').innerText = granTotal.toFixed(2);
     }
 
-    // --- FUNCIÓN ACTIVA PARA COPTAR PERMISOS ---
-    function pedirPermisoYListar() {
-        // Al ejecutar esto mediante un botón (acción directa del usuario), los navegadores sí permiten lanzar la alerta
-        Html5Qrcode.getCameras().then(devices => {
-            const select = document.getElementById('camera-select');
-            select.innerHTML = "";
-            
-            if (devices && devices.length) {
-                devices.forEach((device, index) => {
-                    const option = document.createElement('option');
-                    option.value = device.id;
-                    option.text = device.label || `Cámara ${index + 1}`;
-                    select.appendChild(option);
-                });
-                
-                // Mostrar controles ocultos y esconder el botón de permiso
-                document.getElementById('permission-row').style.display = 'none';
-                select.style.display = 'block';
-                document.getElementById('btn-start').style.display = 'block';
-            } else {
-                alert("No se detectaron cámaras en este dispositivo.");
-            }
-        }).catch(err => {
-            console.error(err);
-            alert("Chrome bloqueó el acceso. Por favor ve al ícono del candado/configuración arriba junto a la URL y cambia el permiso de Cámara a 'Permitir'.");
-        });
+    // --- MÉTODOS DE ESCANEO ---
+
+    // 1. Escaneo por archivo/foto (Inmune a bloqueos de permisos)
+    function escanearDesdeArchivo(input) {
+        if (input.files.length === 0) return;
+        const archivo = input.files[0];
+        
+        // Creamos un lector temporal en un div invisible
+        const html5QrCodeFile = new Html5Qrcode("reader");
+        html5QrCodeFile.scanFile(archivo, true)
+            .then(decodedText => {
+                buscarYAgregar(decodedText);
+            })
+            .catch(err => {
+                alert("No se pudo detectar un código de barras nítido en la imagen. Intenta tomar la foto más cerca y con buena luz.");
+            });
     }
 
-    function encenderCamaraSeleccionada() {
-        const cameraId = document.getElementById('camera-select').value;
-        if (!cameraId) return alert("Selecciona una cámara.");
-
+    // 2. Intentar escaneo nativo directo
+    function encenderCamaraEnv() {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
-        
         html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start(cameraId, { fps: 10, qrbox: { width: 250, height: 150 } }, (text) => { buscarYAgregar(text); }, () => {})
+        
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: { width: 250, height: 150 } }, 
+            (text) => { buscarYAgregar(text); apagarCamara(); }, 
+            () => {}
+        )
         .then(() => {
             document.getElementById('btn-start').style.display = 'none';
             document.getElementById('btn-stop').style.display = 'block';
         })
-        .catch(err => alert("Error al encender este lente en específico. Elige otro de la lista."));
+        .catch(err => {
+            document.getElementById('reader').style.display = 'none';
+            alert("Acceso en vivo bloqueado por el celular. Por favor, utiliza el botón naranja 'Tomar Foto al Código'.");
+        });
     }
 
     function apagarCamara() {
