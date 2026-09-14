@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Web Móvil - GitHub Ready</title>
-    <!-- Usamos la versión limpia y directa de la librería -->
+    <title>POS Web Móvil - Control Total</title>
+    <!-- Cargamos la librería estable directamente -->
     <script src="https://cloudflare.com"></script>
     <style>
         body {
@@ -24,15 +24,21 @@
         h1 { text-align: center; color: #2c3e50; font-size: 24px; }
         .input-group {
             display: flex;
-            gap: 8px;
+            flex-direction: column;
+            gap: 10px;
             margin-bottom: 15px;
         }
-        input[type="text"] {
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+        input[type="text"], select {
             flex: 1;
             padding: 12px;
             border: 2px solid #bdc3c7;
             border-radius: 8px;
             font-size: 16px;
+            background: white;
         }
         button {
             padding: 12px 15px;
@@ -81,9 +87,21 @@
     <h1>🛒 POS Escáner Móvil</h1>
 
     <div class="input-group">
-        <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
-        <button class="btn-camera" id="btn-start" onclick="encenderCamara()">📷 Cámara</button>
-        <button class="btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar</button>
+        <div class="row">
+            <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
+        </div>
+        
+        <!-- Menú desplegable para elegir la cámara si la automática falla -->
+        <div class="row">
+            <select id="camera-select">
+                <option value="">Cargando cámaras disponibles...</option>
+            </select>
+        </div>
+        
+        <div class="row">
+            <button class="btn-camera" id="btn-start" style="width: 100%;" onclick="encenderCamaraSeleccionada()">📷 Iniciar Cámara Seleccionada</button>
+            <button class="btn-stop" id="btn-stop" style="width: 100%;" onclick="apagarCamara()">🛑 Apagar Cámara</button>
+        </div>
     </div>
 
     <!-- Contenedor del video de la cámara -->
@@ -107,16 +125,14 @@
 </div>
 
 <script>
-    // Base de datos de prueba
     const infoProductos = {
         "123456": { nombre: "Producto Prueba", precio: 10.00 },
         "7501055310014": { nombre: "Refresco", precio: 1.50 }
     };
 
     let carrito = {};
-    let html5QrCode = null; // Guardará la instancia de la cámara
+    let html5QrCode = null;
 
-    // Escuchar lector de código de barras físico
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -127,7 +143,6 @@
     function buscarYAgregar(codigo) {
         codigo = codigo.trim();
         if (!codigo) return;
-
         document.getElementById('barcode-input').value = "";
         
         if (infoProductos[codigo]) {
@@ -138,8 +153,6 @@
                 carrito[codigo] = { nombre: producto.nombre, precio: producto.precio, cantidad: 1 };
             }
             actualizarInterfaz();
-            
-            // Vibración corta en el celular al escanear con éxito
             if (navigator.vibrate) navigator.vibrate(80);
         } else {
             alert(`Código no encontrado: ${codigo}`);
@@ -169,39 +182,58 @@
         totalSpan.innerText = granTotal.toFixed(2);
     }
 
-    // --- LÓGICA DE LA CÁMARA PARA GITHUB PAGES ---
-    function encenderCamara() {
+    // --- NUEVA LÓGICA: DETECTAR Y ENLISTAR CÁMARAS REALES ---
+    
+    // Al cargar la página, pedimos permiso y listamos los lentes del celular
+    document.addEventListener("DOMContentLoaded", () => {
+        Html5Qrcode.getCameras().then(devices => {
+            const select = document.getElementById('camera-select');
+            select.innerHTML = ""; // Limpiar el cargando
+            
+            if (devices && devices.length) {
+                devices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.id;
+                    // Nombres claros para identificar cuál es cuál
+                    option.text = device.label || `Cámara ${index + 1}`;
+                    select.appendChild(option);
+                });
+            } else {
+                select.innerHTML = '<option value="">No se encontraron cámaras.</option>';
+            }
+        }).catch(err => {
+            console.error(err);
+            document.getElementById('camera-select').innerHTML = '<option value="">Error al pedir permisos de cámara.</option>';
+        });
+    });
+
+    function encenderCamaraSeleccionada() {
+        const cameraId = document.getElementById('camera-select').value;
+        if (!cameraId) {
+            alert("Por favor selecciona una cámara válida de la lista.");
+            return;
+        }
+
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
         
-        // Creamos la instancia apuntando al div "reader"
         html5QrCode = new Html5Qrcode("reader");
-        
-        const config = { 
-            fps: 10, 
-            qrbox: { width: 250, height: 150 } // Cuadro de enfoque para barras
-        };
+        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
-        // Iniciamos la cámara forzando la cámara TRASERA (environment)
+        // Iniciamos la cámara usando directamente el ID de la lista
         html5QrCode.start(
-            { facingMode: "environment" }, 
+            cameraId, 
             config,
-            (decodedText) => {
-                // Si lee un código, lo agrega
-                buscarYAgregar(decodedText);
-            },
-            (errorMessage) => {
-                // Errores de escaneo silenciosos mientras busca
-            }
+            (decodedText) => { buscarYAgregar(decodedText); },
+            (errorMessage) => { /* Silencioso */ }
         )
         .then(() => {
-            // Cambiar botones si la cámara encendió con éxito
             document.getElementById('btn-start').style.display = 'none';
             document.getElementById('btn-stop').style.display = 'inline-block';
         })
         .catch((err) => {
-            console.error("Error al iniciar cámara: ", err);
-            alert("Error: Asegúrate de dar permisos de cámara y que estás usando HTTPS en GitHub.");
+            console.error("Error al iniciar cámara fija: ", err);
+            alert("No se pudo iniciar el lente seleccionado. Prueba eligiendo otro de la lista.");
         });
     }
 
