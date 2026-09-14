@@ -28,7 +28,6 @@
 <div class="container">
     <div class="nav-links">
         <span>📍 Pantalla: Caja de Cobro</span>
-        <!-- Enlace para ir a la parte 2 -->
         <a href="inventario.html">📦 Ir a Inventario y Reportes ➔</a>
     </div>
 
@@ -37,7 +36,6 @@
     <div class="input-group">
         <input type="text" id="barcode-input" placeholder="Lector físico o escribe código..." autofocus>
         
-        <!-- Botón de emergencia para celulares -->
         <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="escanearDesdeArchivo(this)">
         <button class="btn btn-orange" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
     </div>
@@ -58,17 +56,19 @@
 </div>
 
 <script>
-    // Conectar con la base de datos compartida del teléfono
+    // Forzamos la lectura fresca del LocalStorage cada vez que se abre la caja
     let inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
     let historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
     let carrito = {};
 
-    // Escuchar lector de mano
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); buscarYAgregar(this.value); }
     });
 
     function buscarYAgregar(codigo) {
+        // Recargar inventario por si registraste algo en la otra pestaña sin cerrar esta
+        inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
+        
         codigo = codigo.trim();
         if (!codigo) return;
         document.getElementById('barcode-input').value = "";
@@ -83,7 +83,7 @@
             actualizarInterfaz();
             if (navigator.vibrate) navigator.vibrate(60);
         } else {
-            alert(`⚠️ El código "${codigo}" no existe en el inventario. Ve a la pestaña Inventario para registrarlo.`);
+            alert(`⚠️ El código "${codigo}" no existe. Ve a Inventario para registrarlo primero.`);
         }
     }
 
@@ -99,6 +99,8 @@
 
     function cobrarVenta() {
         if (Object.keys(carrito).length === 0) return alert("El carrito está vacío.");
+        historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
+        
         const ahora = new Date();
         const fechaDia = ahora.toISOString().split('T')[0];
         const horaStr = ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
@@ -125,9 +127,9 @@
     function escanearDesdeArchivo(input) {
         if (input.files.length === 0) return;
         const html5QrCodeFile = new Html5Qrcode("reader");
-        html5QrCodeFile.scanFile(input.files[true])
+        html5QrCodeFile.scanFile(input.files[0], true)
             .then(text => { buscarYAgregar(text); })
-            .catch(err => { alert("No se leyó bien el código. Intenta con más luz."); });
+            .catch(err => { alert("No se leyó bien el código. Intenta con más luz y enfoca de cerca."); });
     }
 </script>
 </body>
