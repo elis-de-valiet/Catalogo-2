@@ -3,30 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Web Móvil - Escáner Pro</title>
-    <!-- Incluimos la librería para escanear con la cámara -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <title>POS Web Móvil - GitHub Ready</title>
+    <!-- Usamos la versión limpia y directa de la librería -->
+    <script src="https://cloudflare.com"></script>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             background-color: #f4f6f9;
-            color: #333;
         }
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
             background: #fff;
-            padding: 20px;
+            padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
-        h1 { text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        h1 { text-align: center; color: #2c3e50; font-size: 24px; }
         .input-group {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 15px;
         }
         input[type="text"] {
             flex: 1;
@@ -36,97 +35,88 @@
             font-size: 16px;
         }
         button {
-            padding: 12px 20px;
+            padding: 12px 15px;
             border: none;
             background-color: #3498db;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
         }
-        button:hover { background-color: #2980b9; }
-        button.btn-camera { background-color: #2ecc71; }
-        button.btn-camera:hover { background-color: #27ae60; }
+        .btn-camera { background-color: #2ecc71; }
+        .btn-stop { background-color: #e74c3c; display: none; }
         #reader {
             width: 100%;
-            max-width: 400px;
-            margin: 0 auto 20px auto;
+            max-width: 350px;
+            margin: 0 auto 15px auto;
             border-radius: 8px;
             overflow: hidden;
-            display: none; /* Oculto hasta que se active */
+            display: none;
+            background: #000;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 15px;
         }
         th, td {
-            padding: 12px;
+            padding: 10px;
             text-align: left;
             border-bottom: 1px solid #ddd;
+            font-size: 14px;
         }
-        th { background-color: #f8f9fa; color: #2c3e50; }
+        th { background-color: #f8f9fa; }
         .total-section {
             text-align: right;
-            margin-top: 25px;
-            font-size: 22px;
+            margin-top: 20px;
+            font-size: 20px;
             font-weight: bold;
-            color: #2c3e50;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛒 Mi Punto de Venta (POS)</h1>
+    <h1>🛒 POS Escáner Móvil</h1>
 
-    <!-- Grupo de entrada para el lector físico o escritura manual -->
     <div class="input-group">
-        <input type="text" id="barcode-input" placeholder="Escanea con el lector de mano o escribe aquí..." autofocus>
-        <button onclick="buscarYAgregar(document.getElementById('barcode-input').value)">Agregar</button>
-        <button class="btn-camera" onclick="alternarCamara()">📷 Usar Cámara</button>
+        <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
+        <button class="btn-camera" id="btn-start" onclick="encenderCamara()">📷 Cámara</button>
+        <button class="btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar</button>
     </div>
 
-    <!-- Zona del visor de la cámara del celular -->
+    <!-- Contenedor del video de la cámara -->
     <div id="reader"></div>
 
-    <!-- Tabla del carrito de compras -->
     <table>
         <thead>
             <tr>
-                <th>Producto</th>
-                <th>Código</th>
+                <th>Item</th>
                 <th>Precio</th>
                 <th>Cant.</th>
-                <th>Subtotal</th>
+                <th>Total</th>
             </tr>
         </thead>
-        <tbody id="cart-table-body">
-            <!-- Los productos escaneados aparecerán aquí dinámicamente -->
-        </tbody>
+        <tbody id="cart-table-body"></tbody>
     </table>
 
-    <!-- Total de la venta -->
     <div class="total-section">
         Total: $<span id="cart-total">0.00</span>
     </div>
 </div>
 
 <script>
-    // 1. Simulación de una Base de Datos de Productos
+    // Base de datos de prueba
     const infoProductos = {
-        "7501055310014": { nombre: "Refresco de Cola 600ml", precio: 1.50 },
-        "7501006599123": { nombre: "Papas Fritas Crujientes", precio: 2.00 },
-        "0123456789012": { nombre: "Galletas de Chocolate", precio: 1.20 },
-        "123456": { nombre: "Producto de Prueba Rápida", precio: 10.00 }
+        "123456": { nombre: "Producto Prueba", precio: 10.00 },
+        "7501055310014": { nombre: "Refresco", precio: 1.50 }
     };
 
-    // Estado del carrito de compras
     let carrito = {};
-    let html5QrcodeScanner = null;
+    let html5QrCode = null; // Guardará la instancia de la cámara
 
-    // Capturar el evento "Enter" que envían los lectores de barras USB automáticos
+    // Escuchar lector de código de barras físico
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -134,35 +124,28 @@
         }
     });
 
-    // 2. Función Principal: Buscar código e ingresar al carrito
     function buscarYAgregar(codigo) {
         codigo = codigo.trim();
         if (!codigo) return;
 
-        // Limpiar el campo para el siguiente escaneo físico
         document.getElementById('barcode-input').value = "";
-        document.getElementById('barcode-input').focus();
-
-        // Verificar si el producto existe en nuestra base de datos
+        
         if (infoProductos[codigo]) {
             const producto = infoProductos[codigo];
-            
             if (carrito[codigo]) {
                 carrito[codigo].cantidad += 1;
             } else {
-                carrito[codigo] = {
-                    nombre: producto.nombre,
-                    precio: producto.precio,
-                    cantidad: 1
-                };
+                carrito[codigo] = { nombre: producto.nombre, precio: producto.precio, cantidad: 1 };
             }
             actualizarInterfaz();
+            
+            // Vibración corta en el celular al escanear con éxito
+            if (navigator.vibrate) navigator.vibrate(80);
         } else {
-            alert(`⚠️ Producto con código "${codigo}" no encontrado en el sistema.`);
+            alert(`Código no encontrado: ${codigo}`);
         }
     }
 
-    // 3. Actualizar los datos reflejados en pantalla
     function actualizarInterfaz() {
         const tbody = document.getElementById('cart-table-body');
         const totalSpan = document.getElementById('cart-total');
@@ -174,51 +157,62 @@
             const subtotal = item.precio * item.cantidad;
             granTotal += subtotal;
 
-            const fila = `
+            tbody.innerHTML += `
                 <tr>
                     <td>${item.nombre}</td>
-                    <td>${codigo}</td>
                     <td>$${item.precio.toFixed(2)}</td>
                     <td>${item.cantidad}</td>
                     <td>$${subtotal.toFixed(2)}</td>
                 </tr>
             `;
-            tbody.innerHTML += fila;
         }
-
         totalSpan.innerText = granTotal.toFixed(2);
     }
 
-    // 4. Lógica de activación de la cámara usando Html5Qrcode
-    function alternarCamara() {
+    // --- LÓGICA DE LA CÁMARA PARA GITHUB PAGES ---
+    function encenderCamara() {
         const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
         
-        if (html5QrcodeScanner === null) {
-            readerDiv.style.display = 'block';
-            
-            // Instanciar el escáner (configurado para buscar múltiples tipos de códigos de barras)
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                fps: 15, 
-                qrbox: { width: 250, height: 150 }, // Caja de enfoque rectangular para barras largas
-                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-            }, false);
+        // Creamos la instancia apuntando al div "reader"
+        html5QrCode = new Html5Qrcode("reader");
+        
+        const config = { 
+            fps: 10, 
+            qrbox: { width: 250, height: 150 } // Cuadro de enfoque para barras
+        };
 
-            html5QrcodeScanner.render((decodedText) => {
-                // Éxito: Se leyó un código correctamente
+        // Iniciamos la cámara forzando la cámara TRASERA (environment)
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            config,
+            (decodedText) => {
+                // Si lee un código, lo agrega
                 buscarYAgregar(decodedText);
-                
-                // Efecto de sonido corto opcional o vibración en celulares
-                if (navigator.vibrate) navigator.vibrate(100);
-                
-            }, (error) => {
-                // Fallos de lectura silenciosos mientras busca en el cuadro de video
-            });
-        } else {
-            // Si ya está abierto, lo apagamos para liberar la cámara del celular
-            html5QrcodeScanner.clear().then(() => {
-                html5QrcodeScanner = null;
-                readerDiv.style.display = 'none';
-            }).catch(err => console.error("Error al cerrar cámara:", err));
+            },
+            (errorMessage) => {
+                // Errores de escaneo silenciosos mientras busca
+            }
+        )
+        .then(() => {
+            // Cambiar botones si la cámara encendió con éxito
+            document.getElementById('btn-start').style.display = 'none';
+            document.getElementById('btn-stop').style.display = 'inline-block';
+        })
+        .catch((err) => {
+            console.error("Error al iniciar cámara: ", err);
+            alert("Error: Asegúrate de dar permisos de cámara y que estás usando HTTPS en GitHub.");
+        });
+    }
+
+    function apagarCamara() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').style.display = 'none';
+                document.getElementById('btn-start').style.display = 'inline-block';
+                document.getElementById('btn-stop').style.display = 'none';
+                html5QrCode = null;
+            }).catch(err => console.error("Error al apagar:", err));
         }
     }
 </script>
