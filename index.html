@@ -36,7 +36,7 @@
     <div class="input-group">
         <input type="text" id="barcode-input" placeholder="Lector físico o escribe código..." autofocus>
         
-        <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="escanearDesdeArchivo(this)">
+        <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display: none;" onchange="procesarYEscanear(this)">
         <button class="btn btn-orange" onclick="document.getElementById('qr-file-input').click()">📸 Tomar Foto al Código</button>
     </div>
 
@@ -56,7 +56,6 @@
 </div>
 
 <script>
-    // Forzamos la lectura fresca del LocalStorage cada vez que se abre la caja
     let inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
     let historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
     let carrito = {};
@@ -66,9 +65,7 @@
     });
 
     function buscarYAgregar(codigo) {
-        // Recargar inventario por si registraste algo en la otra pestaña sin cerrar esta
         inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
-        
         codigo = codigo.trim();
         if (!codigo) return;
         document.getElementById('barcode-input').value = "";
@@ -83,7 +80,7 @@
             actualizarInterfaz();
             if (navigator.vibrate) navigator.vibrate(60);
         } else {
-            alert(`⚠️ El código "${codigo}" no existe. Ve a Inventario para registrarlo primero.`);
+            alert(`⚠️ El código "${codigo}" no existe. Regístralo primero en la pestaña de Inventario.`);
         }
     }
 
@@ -124,12 +121,47 @@
         alert("🎉 Venta registrada con éxito.");
     }
 
-    function escanearDesdeArchivo(input) {
+    // --- NUEVO PROCESADOR DE FOTO PARA MEJORAR LA LECTURA ---
+    function procesarYEscanear(input) {
         if (input.files.length === 0) return;
-        const html5QrCodeFile = new Html5Qrcode("reader");
-        html5QrCodeFile.scanFile(input.files[0], true)
-            .then(text => { buscarYAgregar(text); })
-            .catch(err => { alert("No se leyó bien el código. Intenta con más luz y enfoca de cerca."); });
+        const archivo = input.files[0];
+        const lectorImagen = new FileReader();
+
+        lectorImagen.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // Creamos un lienzo (canvas) para reducir el tamaño de la foto gigante
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Forzamos un tamaño óptimo para que la librería no se trabe (Max 800px)
+                let ancho = img.width;
+                let alto = img.height;
+                if (ancho > 800) {
+                    alto = (800 / ancho) * alto;
+                    ancho = 800;
+                }
+                canvas.width = ancho;
+                canvas.height = alto;
+                
+                // Dibujamos la imagen optimizada
+                ctx.drawImage(img, 0, 0, ancho, alto);
+                
+                // Convertimos el lienzo optimizado en un archivo listo para leer
+                canvas.toBlob(function(blob) {
+                    const archivoOptimizado = new File([blob], "foto.jpg", { type: "image/jpeg" });
+                    
+                    const html5QrCodeFile = new Html5Qrcode("reader");
+                    html5QrCodeFile.scanFile(archivoOptimizado, true)
+                        .then(text => { buscarYAgregar(text); })
+                        .catch(err => { 
+                            alert("❌ No se pudo leer el código. Intenta tomar la foto un poco más lejos para que salga nítida y bien enfocada."); 
+                        });
+                }, 'image/jpeg', 0.8);
+            };
+            img.src = e.target.result;
+        };
+        lectorImagen.readAsDataURL(archivo);
     }
 </script>
 </body>
