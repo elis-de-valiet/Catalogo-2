@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>POS - Caja de Cobro Pro</title>
-    <!-- Incluimos la versión oficial y completa del escáner en vivo -->
+    <!-- Cargamos la versión oficial del escáner en vivo -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     <style>
         body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 10px; background-color: #f4f6f9; color: #333; }
@@ -15,15 +15,14 @@
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         input[type="text"] { padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; box-sizing: border-box; width: 100%; }
         
-        /* Botones del Escáner */
         .btn { padding: 12px 15px; border: none; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-align: center; box-sizing: border-box; }
         .btn-green { background-color: #2ecc71; }
         .btn-blue { background-color: #3498db; }
         .btn-red { background-color: #e74c3c; }
         
-        /* Zona del Visor de la Cámara en Vivo */
-        #zona-escaneo { width: 100%; max-width: 400px; margin: 10px auto; display: block; }
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; background-color: #000; }
+        /* CORRECCIÓN: Estilos forzados para que el cuadro negro de la cámara aparezca sí o sí */
+        #zona-escaneo { width: 100%; max-width: 360px; margin: 15px auto; display: none; }
+        #reader { width: 100%; min-height: 250px; border-radius: 8px; overflow: hidden; background-color: #000 !important; border: 2px solid #2c3e50; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
@@ -43,21 +42,18 @@
     <h1>🛒 Caja Registradora</h1>
 
     <div class="input-group">
-        <!-- Entrada para el lector físico de mano -->
         <input type="text" id="barcode-input" placeholder="Lector de mano activo... (o escribe código)" autofocus>
         
-        <!-- Botones para encender y apagar la cámara del celular en vivo -->
         <button class="btn btn-blue" id="btn-encender" onclick="iniciarEscaneoAutomatico()">📷 Encender Escáner Automático</button>
         <button class="btn btn-red" id="btn-apagar" onclick="detenerEscaneo()" style="display: none;">🛑 Apagar Cámara</button>
         <div class="cooldown-aviso" id="aviso-espera">🔄 Procesando código... espera un segundo</div>
     </div>
 
-    <!-- Contenedor donde se proyectará el video de tu cámara -->
+    <!-- El contenedor ahora cambia su visibilidad dinámicamente mediante JS -->
     <div id="zona-escaneo">
         <div id="reader"></div>
     </div>
 
-    <!-- Tabla de productos en el carrito -->
     <table>
         <thead>
             <tr><th>Item</th><th>Precio</th><th>Cant.</th><th>Total</th></tr>
@@ -76,9 +72,8 @@
     let historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
     let carrito = {};
     let html5QrcodeScanner = null;
-    let puedeEscanear = true; // Controla que no se agregue el mismo producto 50 veces por segundo
+    let puedeEscanear = true;
 
-    // Lector de mano físico USB/Bluetooth
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); buscarYAgregar(this.value); }
     });
@@ -97,8 +92,6 @@
                 carrito[codigo] = { nombre: prod.nombre, compra: prod.compra, venta: prod.venta, cantidad: 1 };
             }
             actualizarInterfaz();
-            
-            // Sonido o vibración de confirmación ("Bip")
             if (navigator.vibrate) navigator.vibrate(80);
         } else {
             alert(`⚠️ Código "${codigo}" no encontrado en tu inventario.\nVe a la pestaña de Inventario para registrarlo.`);
@@ -115,45 +108,44 @@
         document.getElementById('cart-total').innerText = `$${total.toFixed(2)}`;
     }
 
-    // --- MOTOR DE ESCANEO EN VIVO Y AUTOMÁTICO ---
+    // --- NUEVO MOTOR INICIADOR OPTIMIZADO ---
     function iniciarEscaneoAutomatico() {
+        // Mostramos el bloque contenedor en la pantalla
+        document.getElementById('zona-escaneo').style.display = 'block';
         document.getElementById('btn-encender').style.display = 'none';
         document.getElementById('btn-apagar').style.display = 'block';
 
-        // Creamos el escáner configurado idealmente para códigos de barra de productos (EAN_13, EAN_8, CODE_128)
         html5QrcodeScanner = new Html5Qrcode("reader");
         
+        // Configuración simplificada y compatible con pantallas móviles de alta densidad
         const config = {
-            fps: 15, // Velocidad de lectura por segundo
-            qrbox: { width: 280, height: 160 }, // Cuadro de enfoque rectangular para códigos de barra largos
-            aspectRatio: 1.0
+            fps: 10,
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // Genera una caja perfecta para apuntar códigos de barra alargados
+                return { width: Math.floor(viewfinderWidth * 0.8), height: Math.floor(viewfinderHeight * 0.5) };
+            }
         };
 
-        // Forzamos al celular a usar estrictamente la cámara de atrás con enfoque automático
         html5QrcodeScanner.start(
-            { facingMode: "environment" },
+            { facingMode: "environment" }, // Cámara de atrás obligatoria
             config,
             (decodedText) => {
-                // Cuando detecta un código de barras de forma automática en el video:
                 if (puedeEscanear) {
                     puedeEscanear = false;
                     document.getElementById('aviso-espera').style.display = 'block';
                     
                     buscarYAgregar(decodedText);
                     
-                    // Pausa de 1.5 segundos antes de permitir escanear el siguiente producto
                     setTimeout(() => {
                         puedeEscanear = true;
                         document.getElementById('aviso-espera').style.display = 'none';
                     }, 1500);
                 }
             },
-            (error) => {
-                // Registro silencioso mientras busca líneas de barras en el video
-            }
+            (error) => { /* Búsqueda silenciosa en el cuadro */ }
         ).catch(err => {
-            console.error(err);
-            alert("Error al conectar la cámara en vivo. Asegúrate de dar los permisos cuando aparezca el aviso.");
+            console.error("Error crítico de cámara: ", err);
+            alert("No se pudo iniciar el video en vivo. Asegúrate de otorgar el permiso de cámara.");
             detenerEscaneo();
         });
     }
@@ -162,11 +154,19 @@
         if (html5QrcodeScanner) {
             html5QrcodeScanner.stop().then(() => {
                 html5QrcodeScanner = null;
+                document.getElementById('zona-escaneo').style.display = 'none';
                 document.getElementById('btn-encender').style.display = 'block';
                 document.getElementById('btn-apagar').style.display = 'none';
                 document.getElementById('aviso-espera').style.display = 'none';
-            }).catch(err => console.error(err));
+            }).catch(err => {
+                console.error(err);
+                // Cierre forzado si la librería se traba
+                document.getElementById('zona-escaneo').style.display = 'none';
+                document.getElementById('btn-encender').style.display = 'block';
+                document.getElementById('btn-apagar').style.display = 'none';
+            });
         } else {
+            document.getElementById('zona-escaneo').style.display = 'none';
             document.getElementById('btn-encender').style.display = 'block';
             document.getElementById('btn-apagar').style.display = 'none';
         }
@@ -178,7 +178,7 @@
         
         const ahora = new Date();
         const fechaDia = ahora.toISOString().split('T');
-        const horaStr = ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const horaStr = algo = ahora.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
         let totalVenta = 0, totalCostoCompra = 0, itemsVendidos = [];
         for (let cod in carrito) {
