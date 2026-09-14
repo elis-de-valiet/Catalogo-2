@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Web Móvil - Escáner Pro</title>
+    <!-- Incluimos la librería para escanear con la cámara -->
+    <script src="https://unpkg.com" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        button.btn-camera { background-color: #2ecc71; }
+        button.btn-camera:hover { background-color: #27ae60; }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto 20px auto;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none; /* Oculto hasta que se active */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background-color: #f8f9fa; color: #2c3e50; }
+        .total-section {
+            text-align: right;
+            margin-top: 25px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🛒 Mi Punto de Venta (POS)</h1>
+
+    <!-- Grupo de entrada para el lector físico o escritura manual -->
+    <div class="input-group">
+        <input type="text" id="barcode-input" placeholder="Escanea con el lector de mano o escribe aquí..." autofocus>
+        <button onclick="buscarYAgregar(document.getElementById('barcode-input').value)">Agregar</button>
+        <button class="btn-camera" onclick="alternarCamara()">📷 Usar Cámara</button>
+    </div>
+
+    <!-- Zona del visor de la cámara del celular -->
+    <div id="reader"></div>
+
+    <!-- Tabla del carrito de compras -->
+    <table>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Código</th>
+                <th>Precio</th>
+                <th>Cant.</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody id="cart-table-body">
+            <!-- Los productos escaneados aparecerán aquí dinámicamente -->
+        </tbody>
+    </table>
+
+    <!-- Total de la venta -->
+    <div class="total-section">
+        Total: $<span id="cart-total">0.00</span>
+    </div>
+</div>
+
+<script>
+    // 1. Simulación de una Base de Datos de Productos
+    const infoProductos = {
+        "7501055310014": { nombre: "Refresco de Cola 600ml", precio: 1.50 },
+        "7501006599123": { nombre: "Papas Fritas Crujientes", precio: 2.00 },
+        "0123456789012": { nombre: "Galletas de Chocolate", precio: 1.20 },
+        "123456": { nombre: "Producto de Prueba Rápida", precio: 10.00 }
+    };
+
+    // Estado del carrito de compras
+    let carrito = {};
+    let html5QrcodeScanner = null;
+
+    // Capturar el evento "Enter" que envían los lectores de barras USB automáticos
+    document.getElementById('barcode-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            buscarYAgregar(this.value);
+        }
+    });
+
+    // 2. Función Principal: Buscar código e ingresar al carrito
+    function buscarYAgregar(codigo) {
+        codigo = codigo.trim();
+        if (!codigo) return;
+
+        // Limpiar el campo para el siguiente escaneo físico
+        document.getElementById('barcode-input').value = "";
+        document.getElementById('barcode-input').focus();
+
+        // Verificar si el producto existe en nuestra base de datos
+        if (infoProductos[codigo]) {
+            const producto = infoProductos[codigo];
+            
+            if (carrito[codigo]) {
+                carrito[codigo].cantidad += 1;
+            } else {
+                carrito[codigo] = {
+                    nombre: producto.nombre,
+                    precio: producto.precio,
+                    cantidad: 1
+                };
+            }
+            actualizarInterfaz();
+        } else {
+            alert(`⚠️ Producto con código "${codigo}" no encontrado en el sistema.`);
+        }
+    }
+
+    // 3. Actualizar los datos reflejados en pantalla
+    function actualizarInterfaz() {
+        const tbody = document.getElementById('cart-table-body');
+        const totalSpan = document.getElementById('cart-total');
+        tbody.innerHTML = "";
+        let granTotal = 0;
+
+        for (let codigo in carrito) {
+            const item = carrito[codigo];
+            const subtotal = item.precio * item.cantidad;
+            granTotal += subtotal;
+
+            const fila = `
+                <tr>
+                    <td>${item.nombre}</td>
+                    <td>${codigo}</td>
+                    <td>$${item.precio.toFixed(2)}</td>
+                    <td>${item.cantidad}</td>
+                    <td>$${subtotal.toFixed(2)}</td>
+                </tr>
+            `;
+            tbody.innerHTML += fila;
+        }
+
+        totalSpan.innerText = granTotal.toFixed(2);
+    }
+
+    // 4. Lógica de activación de la cámara usando Html5Qrcode
+    function alternarCamara() {
+        const readerDiv = document.getElementById('reader');
+        
+        if (html5QrcodeScanner === null) {
+            readerDiv.style.display = 'block';
+            
+            // Instanciar el escáner (configurado para buscar múltiples tipos de códigos de barras)
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 15, 
+                qrbox: { width: 250, height: 150 }, // Caja de enfoque rectangular para barras largas
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            }, false);
+
+            html5QrcodeScanner.render((decodedText) => {
+                // Éxito: Se leyó un código correctamente
+                buscarYAgregar(decodedText);
+                
+                // Efecto de sonido corto opcional o vibración en celulares
+                if (navigator.vibrate) navigator.vibrate(100);
+                
+            }, (error) => {
+                // Fallos de lectura silenciosos mientras busca en el cuadro de video
+            });
+        } else {
+            // Si ya está abierto, lo apagamos para liberar la cámara del celular
+            html5QrcodeScanner.clear().then(() => {
+                html5QrcodeScanner = null;
+                readerDiv.style.display = 'none';
+            }).catch(err => console.error("Error al cerrar cámara:", err));
+        }
+    }
+</script>
+
+</body>
+</html>
