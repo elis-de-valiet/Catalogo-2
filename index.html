@@ -3,82 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Web Móvil - Control Total</title>
-    <!-- Cargamos la librería estable directamente -->
+    <title>POS Web Móvil - Permiso Forzado</title>
     <script src="https://cloudflare.com"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            margin: 0;
-            padding: 15px;
-            background-color: #f4f6f9;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 15px; background-color: #f4f6f9; }
+        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         h1 { text-align: center; color: #2c3e50; font-size: 24px; }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .row {
-            display: flex;
-            gap: 8px;
-        }
-        input[type="text"], select {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #bdc3c7;
-            border-radius: 8px;
-            font-size: 16px;
-            background: white;
-        }
-        button {
-            padding: 12px 15px;
-            border: none;
-            background-color: #3498db;
-            color: white;
-            font-size: 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .btn-camera { background-color: #2ecc71; }
-        .btn-stop { background-color: #e74c3c; display: none; }
-        #reader {
-            width: 100%;
-            max-width: 350px;
-            margin: 0 auto 15px auto;
-            border-radius: 8px;
-            overflow: hidden;
-            display: none;
-            background: #000;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-            font-size: 14px;
-        }
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .row { display: flex; gap: 8px; }
+        input[type="text"], select { flex: 1; padding: 12px; border: 2px solid #bdc3c7; border-radius: 8px; font-size: 16px; background: white; }
+        button { padding: 12px 15px; border: none; background-color: #3498db; color: white; font-size: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-permiso { background-color: #f39c12; width: 100%; }
+        .btn-camera { background-color: #2ecc71; width: 100%; display: none; }
+        .btn-stop { background-color: #e74c3c; width: 100%; display: none; }
+        #camera-select { display: none; } /* Oculto hasta tener permiso */
+        #reader { width: 100%; max-width: 350px; margin: 0 auto 15px auto; border-radius: 8px; overflow: hidden; display: none; background: #000; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
         th { background-color: #f8f9fa; }
-        .total-section {
-            text-align: right;
-            margin-top: 20px;
-            font-size: 20px;
-            font-weight: bold;
-        }
+        .total-section { text-align: right; margin-top: 20px; font-size: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -91,37 +34,32 @@
             <input type="text" id="barcode-input" placeholder="Lector físico o código manual..." autofocus>
         </div>
         
-        <!-- Menú desplegable para elegir la cámara si la automática falla -->
+        <!-- BOTÓN PASO 1: FORZAR SOLICITUD DE PERMISO -->
+        <div class="row" id="permission-row">
+            <button class="btn-permiso" onclick="pedirPermisoYListar()">🔑 Paso 1: Conectar con las Cámaras</button>
+        </div>
+
+        <!-- PASO 2: SELECCIÓN Y ENCENDIDO (OCULTOS AL INICIO) -->
         <div class="row">
             <select id="camera-select">
-                <option value="">Cargando cámaras disponibles...</option>
+                <option value="">Selecciona una cámara...</option>
             </select>
         </div>
         
         <div class="row">
-            <button class="btn-camera" id="btn-start" style="width: 100%;" onclick="encenderCamaraSeleccionada()">📷 Iniciar Cámara Seleccionada</button>
-            <button class="btn-stop" id="btn-stop" style="width: 100%;" onclick="apagarCamara()">🛑 Apagar Cámara</button>
+            <button class="btn-camera" id="btn-start" onclick="encenderCamaraSeleccionada()">📷 Paso 2: Iniciar Cámara</button>
+            <button class="btn-stop" id="btn-stop" onclick="apagarCamara()">🛑 Apagar Cámara</button>
         </div>
     </div>
 
-    <!-- Contenedor del video de la cámara -->
     <div id="reader"></div>
 
     <table>
-        <thead>
-            <tr>
-                <th>Item</th>
-                <th>Precio</th>
-                <th>Cant.</th>
-                <th>Total</th>
-            </tr>
-        </thead>
+        <thead><tr><th>Item</th><th>Precio</th><th>Cant.</th><th>Total</th></tr></thead>
         <tbody id="cart-table-body"></tbody>
     </table>
 
-    <div class="total-section">
-        Total: $<span id="cart-total">0.00</span>
-    </div>
+    <div class="total-section">Total: $<span id="cart-total">0.00</span></div>
 </div>
 
 <script>
@@ -129,125 +67,90 @@
         "123456": { nombre: "Producto Prueba", precio: 10.00 },
         "7501055310014": { nombre: "Refresco", precio: 1.50 }
     };
-
     let carrito = {};
     let html5QrCode = null;
 
     document.getElementById('barcode-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            buscarYAgregar(this.value);
-        }
+        if (e.key === 'Enter') { e.preventDefault(); buscarYAgregar(this.value); }
     });
 
     function buscarYAgregar(codigo) {
-        codigo = codigo.trim();
+        codigo = code = codigo.trim();
         if (!codigo) return;
         document.getElementById('barcode-input').value = "";
-        
         if (infoProductos[codigo]) {
-            const producto = infoProductos[codigo];
-            if (carrito[codigo]) {
-                carrito[codigo].cantidad += 1;
-            } else {
-                carrito[codigo] = { nombre: producto.nombre, precio: producto.precio, cantidad: 1 };
-            }
+            const prod = infoProductos[codigo];
+            if (carrito[codigo]) { carrito[codigo].cantidad += 1; } 
+            else { carrito[codigo] = { nombre: prod.nombre, precio: prod.precio, cantidad: 1 }; }
             actualizarInterfaz();
             if (navigator.vibrate) navigator.vibrate(80);
-        } else {
-            alert(`Código no encontrado: ${codigo}`);
-        }
+        } else { alert(`Código no encontrado: ${codigo}`); }
     }
 
     function actualizarInterfaz() {
         const tbody = document.getElementById('cart-table-body');
-        const totalSpan = document.getElementById('cart-total');
-        tbody.innerHTML = "";
-        let granTotal = 0;
-
-        for (let codigo in carrito) {
-            const item = carrito[codigo];
-            const subtotal = item.precio * item.cantidad;
-            granTotal += subtotal;
-
-            tbody.innerHTML += `
-                <tr>
-                    <td>${item.nombre}</td>
-                    <td>$${item.precio.toFixed(2)}</td>
-                    <td>${item.cantidad}</td>
-                    <td>$${subtotal.toFixed(2)}</td>
-                </tr>
-            `;
+        tbody.innerHTML = ""; let granTotal = 0;
+        for (let cod in carrito) {
+            const item = carrito[cod]; const sub = item.precio * item.cantidad; granTotal += sub;
+            tbody.innerHTML += `<tr><td>${item.nombre}</td><td>$${item.precio.toFixed(2)}</td><td>${item.cantidad}</td><td>$${sub.toFixed(2)}</td></tr>`;
         }
-        totalSpan.innerText = granTotal.toFixed(2);
+        document.getElementById('cart-total').innerText = granTotal.toFixed(2);
     }
 
-    // --- NUEVA LÓGICA: DETECTAR Y ENLISTAR CÁMARAS REALES ---
-    
-    // Al cargar la página, pedimos permiso y listamos los lentes del celular
-    document.addEventListener("DOMContentLoaded", () => {
+    // --- FUNCIÓN ACTIVA PARA COPTAR PERMISOS ---
+    function pedirPermisoYListar() {
+        // Al ejecutar esto mediante un botón (acción directa del usuario), los navegadores sí permiten lanzar la alerta
         Html5Qrcode.getCameras().then(devices => {
             const select = document.getElementById('camera-select');
-            select.innerHTML = ""; // Limpiar el cargando
+            select.innerHTML = "";
             
             if (devices && devices.length) {
                 devices.forEach((device, index) => {
                     const option = document.createElement('option');
                     option.value = device.id;
-                    // Nombres claros para identificar cuál es cuál
                     option.text = device.label || `Cámara ${index + 1}`;
                     select.appendChild(option);
                 });
+                
+                // Mostrar controles ocultos y esconder el botón de permiso
+                document.getElementById('permission-row').style.display = 'none';
+                select.style.display = 'block';
+                document.getElementById('btn-start').style.display = 'block';
             } else {
-                select.innerHTML = '<option value="">No se encontraron cámaras.</option>';
+                alert("No se detectaron cámaras en este dispositivo.");
             }
         }).catch(err => {
             console.error(err);
-            document.getElementById('camera-select').innerHTML = '<option value="">Error al pedir permisos de cámara.</option>';
+            alert("Chrome bloqueó el acceso. Por favor ve al ícono del candado/configuración arriba junto a la URL y cambia el permiso de Cámara a 'Permitir'.");
         });
-    });
+    }
 
     function encenderCamaraSeleccionada() {
         const cameraId = document.getElementById('camera-select').value;
-        if (!cameraId) {
-            alert("Por favor selecciona una cámara válida de la lista.");
-            return;
-        }
+        if (!cameraId) return alert("Selecciona una cámara.");
 
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
         
         html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
-
-        // Iniciamos la cámara usando directamente el ID de la lista
-        html5QrCode.start(
-            cameraId, 
-            config,
-            (decodedText) => { buscarYAgregar(decodedText); },
-            (errorMessage) => { /* Silencioso */ }
-        )
+        html5QrCode.start(cameraId, { fps: 10, qrbox: { width: 250, height: 150 } }, (text) => { buscarYAgregar(text); }, () => {})
         .then(() => {
             document.getElementById('btn-start').style.display = 'none';
-            document.getElementById('btn-stop').style.display = 'inline-block';
+            document.getElementById('btn-stop').style.display = 'block';
         })
-        .catch((err) => {
-            console.error("Error al iniciar cámara fija: ", err);
-            alert("No se pudo iniciar el lente seleccionado. Prueba eligiendo otro de la lista.");
-        });
+        .catch(err => alert("Error al encender este lente en específico. Elige otro de la lista."));
     }
 
     function apagarCamara() {
         if (html5QrCode) {
             html5QrCode.stop().then(() => {
                 document.getElementById('reader').style.display = 'none';
-                document.getElementById('btn-start').style.display = 'inline-block';
+                document.getElementById('btn-start').style.display = 'block';
                 document.getElementById('btn-stop').style.display = 'none';
                 html5QrCode = null;
-            }).catch(err => console.error("Error al apagar:", err));
+            });
         }
     }
 </script>
-
 </body>
 </html>
