@@ -69,22 +69,32 @@
     });
 
     function guardarEnInventario() {
+        // Forzar recarga antes de escribir para no chocar datos
+        inventario = JSON.parse(localStorage.getItem('pos_inventario')) || {};
+
         const codigo = document.getElementById('inv-codigo').value.trim();
         const nombre = document.getElementById('inv-nombre').value.trim();
         const compra = parseFloat(document.getElementById('inv-compra').value);
         const venta = parseFloat(document.getElementById('inv-venta').value);
 
-        if (!codigo || !nombre || isNaN(compra) || isNaN(venta)) return alert("Completa todos los campos.");
+        if (!codigo || !nombre || isNaN(compra) || isNaN(venta)) {
+            return alert("Por favor, completa todos los campos.");
+        }
 
-        inventario[codigo] = { nombre, compra, venta };
+        // Guardamos el objeto limpio
+        inventario[codigo] = { nombre: nombre, compra: compra, venta: venta };
         localStorage.setItem('pos_inventario', JSON.stringify(inventario));
         
-        document.getElementById('inv-codigo').value = ""; document.getElementById('inv-nombre').value = "";
-        document.getElementById('inv-compra').value = ""; document.getElementById('inv-venta').value = "";
-        alert(`✅ "${nombre}" añadido.`);
+        document.getElementById('inv-codigo').value = ""; 
+        document.getElementById('inv-nombre').value = "";
+        document.getElementById('inv-compra').value = ""; 
+        document.getElementById('inv-venta').value = "";
+        
+        alert(`✅ Producto "${nombre}" guardado con éxito en el almacén.`);
     }
 
     function cargarHistorialDiario() {
+        historialVentas = JSON.parse(localStorage.getItem('pos_historial')) || [];
         const fechaSel = document.getElementById('fecha-filtro').value;
         const contenedor = document.getElementById('historial-contenedor');
         contenedor.innerHTML = "";
