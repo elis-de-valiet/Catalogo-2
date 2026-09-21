@@ -1,0 +1,127 @@
+// Escuchar envío del formulario para ingresar nuevos productos al inventario
+formProducto.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const codigo = document.getElementById('prod-codigo').value.trim();
+    const nombre = document.getElementById('prod-nombre').value.trim();
+    const costo = parseFloat(document.getElementById('prod-costo').value);
+    const precio = parseFloat(document.getElementById('prod-precio').value);
+    const stock = parseInt(document.getElementById('prod-stock').value);
+
+    if (productos.some(p => p.codigo === codigo)) {
+        alert("⚠️ Este código de barras ya existe en el inventario.");
+        return;
+    }
+
+    productos.push({ codigo, nombre, costo, precio, stock });
+    localStorage.setItem('pos_prod_v2', JSON.stringify(productos));
+    formProducto.reset();
+    actualizarPantalla();
+});
+
+// Cobro de caja, descuento real en inventario y persistencia en historial
+document.getElementById('btn-pagar').addEventListener('click', () => {
+    if (carrito.length === 0) {
+        alert("🛒 El carrito está vacío.");
+        return;
+    }
+
+    let totalCuenta = 0;
+    let totalGanancia = 0;
+    let operacionValida = true;
+
+    carrito.forEach(itemCart => {
+        const prodReal = productos.find(p => p.codigo === itemCart.codigo);
+        if (!prodReal || prodReal.stock < itemCart.cantidad) {
+            alert(`❌ Stock insuficiente para el producto ${itemCart.nombre}.`);
+            operacionValida = false;
+        }
+    });
+
+    if (!operacionValida) return;
+
+    carrito.forEach(itemCart => {
+        const prodReal = productos.find(p => p.codigo === itemCart.codigo);
+        prodReal.stock -= itemCart.cantidad;
+        totalCuenta += itemCart.precio * itemCart.cantidad;
+        totalGanancia += (itemCart.precio - itemCart.costo) * itemCart.cantidad;
+    });
+
+    const nuevaVenta = {
+        fecha: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        items: [...carrito],
+        totalCuenta: totalCuenta,
+        totalGanancia: totalGanancia
+    };
+
+    historial.push(nuevaVenta);
+    localStorage.setItem('pos_prod_v2', JSON.stringify(productos));
+    localStorage.setItem('pos_hist_v2', JSON.stringify(historial));
+
+    carrito = [];
+    alert("💵 ¡Venta registrada de manera exitosa!");
+    actualizarPantalla();
+});
+
+// Encendido y apagado asíncrono seguro del hardware de la cámara
+btnEncender.addEventListener('click', () => {
+    if (divLector.style.display === 'none' || divLector.style.display === '') {
+        divLector.style.display = 'block';
+        btnEncender.textContent = "🛑 Apagar Cámara";
+
+        if (!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5Qrcode("lector-camara");
+        }
+
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 15, qrbox: { width: 250, height: 150 } },
+            (decodedText) => {
+                const codigoLimpio = decodedText.trim();
+                if (codigoLimpio !== ultimoEscaneo) {
+                    ultimoEscaneo = codigoLimpio;
+                    agregarAlCarrito(ultimoEscaneo);
+                    setTimeout(() => { ultimoEscaneo = ""; }, 2000);
+                }
+            },
+            (err) => { /* Silenciar ráfagas de escaneos fallidos */ }
+        ).catch(err => { 
+            console.error(err);
+            alert("No se pudo activar la cámara. Revisa los permisos."); 
+            divLector.style.display = 'none';
+            btnEncender.textContent = "📷 Encender Cámara";
+        });
+    } else {
+        if (html5QrcodeScanner) {
+            html5QrcodeScanner.stop().then(() => {
+                divLector.style.display = 'none';
+                btnEncender.textContent = "📷 Encender Cámara";
+            }).catch(err => console.error("Error al detener cámara:", err));
+        }
+    }
+});
+
+// Captura de códigos en el campo manual por medio de la tecla Enter
+inputManual.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const valor = inputManual.value.trim();
+        if (valor) {
+            agregarAlCarrito(valor);
+            inputManual.value = '';
+        }
+    }
+});
+
+// Eliminación de artículos base del stock general
+function eliminarProducto(index) {
+    if (confirm("¿Estás seguro de eliminar este producto del catálogo?")) {
+        productos.splice(index, 1);
+        localStorage.setItem('pos_prod_v2', JSON.stringify(productos));
+        actualizarPantalla();
+    }
+}
+
+buscador.addEventListener('input', actualizarPantalla);
+
+// Carga de estado inicial de la aplicación
+actualizarPantalla();
