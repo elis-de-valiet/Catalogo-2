@@ -1,0 +1,119 @@
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 15px; 
+    background-color: #f4f4f9; 
+    color: #333; 
+}
+h1, h2 { 
+    text-align: center; 
+    color: #2c3e50; 
+    margin-bottom: 5px; 
+}
+.seccion { 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+    margin-bottom: 15px; 
+}
+input, button { 
+    width: 100%; 
+    padding: 12px; 
+    margin: 5px 0; 
+    box-sizing: border-box; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+    font-size: 16px; 
+}
+
+/* Botones de Colores */
+.btn-verde { 
+    background-color: #27ae60; 
+    color: white; 
+    border: none; 
+    font-weight: bold; 
+    cursor: pointer; 
+}
+.btn-verde:hover { 
+    background-color: #219150; 
+}
+.btn-azul { 
+    background-color: #2980b9; 
+    color: white; 
+    border: none; 
+    font-weight: bold; 
+    cursor: pointer; 
+    margin-bottom: 10px; 
+}
+.btn-borrar { 
+    background-color: #c0392b; 
+    width: auto; 
+    padding: 5px 10px; 
+    margin: 0; 
+    color: white; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+}
+
+/* Caja de Cámara y Carrito */
+.camara-box { 
+    background-color: #e8f8f5; 
+    border: 2px dashed #2ecc71; 
+    text-align: center; 
+}
+#lector-camara { 
+    width: 100%; 
+    max-width: 400px; 
+    margin: 10px auto; 
+    display: none; 
+    background: #000; 
+    border-radius: 8px; 
+    overflow: hidden; 
+}
+.carrito-box { 
+    background-color: #fef9e7; 
+    border: 2px solid #f1c40f; 
+}
+
+/* Listas */
+ul { 
+    list-style-type: none; 
+    padding: 0; 
+}
+li { 
+    background: #fdfefe; 
+    padding: 12px; 
+    margin-bottom: 6px; 
+    border-radius: 4px; 
+    border-left: 5px solid #2980b9; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
+
+/* Semáforo de Stock */
+.stock-alto { 
+    border-left: 6px solid #27ae60; 
+    background-color: #e8f8f5; 
+} 
+.stock-bajo { 
+    border-left: 6px solid #f1c40f; 
+    background-color: #fef9e7; 
+} 
+.stock-agotado { 
+    border-left: 6px solid #e74c3c; 
+    background-color: #fce4d6; 
+} 
+
+.historial-item { 
+    border-left: 5px solid #8e44ad; 
+}
+.totales-caja { 
+    background: #ebf5fb; 
+    padding: 10px; 
+    border-radius: 6px; 
+    margin-top: 10px; 
+    font-weight: bold; 
+    font-size: 15px; 
+}
