@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Sistema POS Avanzado</title>
+    <!-- Enlace a la librería externa de escaneo -->
+    <script src="https://unpkg.com" type="text/javascript"></script>
+    <!-- Enlace al archivo de estilos externos -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <h1>📦 Mi POS Inteligente</h1>
+
+    <!-- 1. ESCÁNER CON CÁMARA -->
+    <div class="seccion camara-box">
+        <h2>📷 Escáner de Barra</h2>
+        <button class="btn-azul" id="btn-encender">📷 Encender Cámara</button>
+        <div id="lector-camara"></div>
+        <input type="text" id="codigo-manual" placeholder="O escribe el código y presiona Enter...">
+    </div>
+
+    <!-- 2. CARRITO DE COMPRAS -->
+    <div class="seccion carrito-box">
+        <h2>🛒 Carrito de Venta Actual</h2>
+        <ul id="lista-carrito"></ul>
+        <div class="totales-caja" id="total-carrito">Total de esta cuenta: $0.00</div>
+        <button class="btn-verde" id="btn-pagar" style="margin-top: 10px;">💵 Registrar como Pagado</button>
+    </div>
+
+    <!-- 3. REGISTRAR NUEVOS PRODUCTOS -->
+    <div class="seccion">
+        <h2>➕ Agregar al Catálogo</h2>
+        <form id="form-producto">
+            <input type="text" id="prod-codigo" placeholder="Código de barra" required>
+            <input type="text" id="prod-nombre" placeholder="Nombre del producto" required>
+            <input type="number" id="prod-costo" placeholder="Precio de Costo (Lo que te costó a ti)" step="0.01" required>
+            <input type="number" id="prod-precio" placeholder="Precio de Venta (Al cliente)" step="0.01" required>
+            <input type="number" id="prod-stock" placeholder="Cantidad disponible (Stock)" required>
+            <button class="btn-verde" type="submit">Guardar en Inventario</button>
+        </form>
+    </div>
+
+    <!-- 4. BUSCADOR E INVENTARIO -->
+    <div class="seccion">
+        <h2>📋 Inventario Actual</h2>
+        <input type="text" id="buscador" placeholder="🔍 Buscar por nombre o código...">
+        <ul id="lista-productos"></ul>
+    </div>
+
+    <!-- 5. HISTORIAL DE VENTAS DEL DÍA -->
+    <div class="seccion">
+        <h2>📜 Ventas del Día</h2>
+        <div class="totales-caja" id="caja-ganancias" style="background-color: #eaf2f8; margin-bottom: 10px; color: #1b4f72;">
+            💰 Total Vendido Hoy: $0.00 <br> 📈 Ganancia Neta Hoy: $0.00
+        </div>
+        <ul id="lista-historial"></ul>
+    </div>
+
+    <!-- Enlace al archivo de lógica del script -->
+    <script src="app.js"></script>
+</body>
+</html>
