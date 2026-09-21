@@ -1,0 +1,139 @@
+// Cargar datos persistentes de LocalStorage
+let productos = JSON.parse(localStorage.getItem('pos_prod_v2')) || [];
+let historial = JSON.parse(localStorage.getItem('pos_hist_v2')) || [];
+let carrito = [];
+
+// Enlaces a elementos de la interfaz de usuario
+const listaProd = document.getElementById('lista-productos');
+const listaHist = document.getElementById('lista-historial');
+const listaCarrito = document.getElementById('lista-carrito');
+const buscador = document.getElementById('buscador');
+const inputManual = document.getElementById('codigo-manual');
+const divLector = document.getElementById('lector-camara');
+const btnEncender = document.getElementById('btn-encender');
+const formProducto = document.getElementById('form-producto');
+
+// Variables de estado del lector óptico
+let html5QrcodeScanner = null;
+let ultimoEscaneo = "";
+
+// Generador de audio de confirmación de lectura nativo
+function reproducirBip() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.1);
+    } catch (e) {
+        console.warn("No se pudo iniciar el audio:", e);
+    }
+}
+
+// Renderizado integral de la pantalla
+function actualizarPantalla() {
+    listaProd.innerHTML = '';
+    const filtro = buscador.value.toLowerCase();
+
+    productos.forEach((p, index) => {
+        if (p.nombre.toLowerCase().includes(filtro) || p.codigo.includes(filtro)) {
+            const li = document.createElement('li');
+            if (p.stock <= 0) li.className = 'stock-agotado';
+            else if (p.stock <= 3) li.className = 'stock-bajo';
+            else li.className = 'stock-alto';
+
+            let gana = p.precio - p.costo;
+            li.innerHTML = `
+                <div>
+                    <strong>${p.nombre}</strong> <small>(${p.codigo})</small><br>
+                    <small style="color:#555;">Costo: $${parseFloat(p.costo).toFixed(2)} | Venta: $${parseFloat(p.precio).toFixed(2)}</small><br>
+                    <span>Stock: <b>${p.stock}</b> | 📈 Gana: $${gana.toFixed(2)}</span>
+                </div>
+                <button class="btn-borrar" onclick="eliminarProducto(${index})">Eliminar</button>
+            `;
+            listaProd.appendChild(li);
+        }
+    });
+
+    listaCarrito.innerHTML = '';
+    let totalCart = 0;
+    carrito.forEach((item, index) => {
+        totalCart += item.precio * item.cantidad;
+        const li = document.createElement('li');
+        li.style.borderLeft = "5px solid #f1c40f";
+        li.innerHTML = `
+            <span><b>${item.nombre}</b> (x${item.cantidad}) - $${(item.precio * item.cantidad).toFixed(2)}</span>
+            <button class="btn-borrar" onclick="quitarDelCarrito(${index})">❌</button>
+        `;
+        listaCarrito.appendChild(li);
+    });
+    document.getElementById('total-carrito').innerText = `Total de esta cuenta: $${totalCart.toFixed(2)}`;
+
+    listaHist.innerHTML = '';
+    let totalVendidoDia = 0;
+    let totalGananciaDia = 0;
+
+    historial.slice().reverse().forEach(venta => {
+        totalVendidoDia += venta.totalCuenta;
+        totalGananciaDia += venta.totalGanancia;
+
+        const li = document.createElement('li');
+        li.className = 'historial-item';
+        let detalles = venta.items.map(i => `${i.nombre} (x${i.cantidad})`).join(', ');
+
+        li.innerHTML = `
+            <div>
+                <span>🕒 ${venta.fecha} - <b>Venta Registrada</b></span><br>
+                <small style="color:#666;">${detalles}</small><br>
+                <span>Total: <b>$${venta.totalCuenta.toFixed(2)}</b> | Ganancia: <span style="color:green; font-weight:bold;">+$${venta.totalGanancia.toFixed(2)}</span></span>
+            </div>
+        `;
+        listaHist.appendChild(li);
+    });
+
+    document.getElementById('caja-ganancias').innerHTML = `
+        💰 Total Vendido Hoy: <b>$${totalVendidoDia.toFixed(2)}</b> <br>
+        📈 Ganancia Neta Hoy: <b>$${totalGananciaDia.toFixed(2)}</b>
+    `;
+}
+
+// Inclusión de productos al carrito
+function agregarAlCarrito(codigoEscaneado) {
+    if (!codigoEscaneado) return;
+    reproducirBip();
+    const producto = productos.find(p => p.codigo === codigoEscaneado);
+
+    if (producto) {
+        const itemEnCarrito = carrito.find(item => item.codigo === codigoEscaneado);
+        const cantActual = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+
+        if (producto.stock > cantActual) {
+            if (itemEnCarrito) {
+                itemEnCarrito.cantidad += 1;
+            } else {
+                carrito.push({
+                    codigo: producto.codigo,
+                    nombre: producto.nombre,
+                    precio: parseFloat(producto.precio),
+                    costo: parseFloat(producto.costo),
+                    cantidad: 1
+                });
+            }
+        } else {
+            alert(`⚠️ Stock insuficiente para: ${producto.nombre}`);
+        }
+    } else {
+        alert(`❌ Código (${codigoEscaneado}) no encontrado.`);
+    }
+    actualizarPantalla();
+}
+
+function quitarDelCarrito(index) {
+    carrito.splice(index, 1);
+    actualizarPantalla();
+}
